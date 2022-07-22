@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,11 +48,15 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage>
+    with SingleTickerProviderStateMixin {
   double _currentMs = 0;
   int _frames = 0;
   int _lastFrameRate = 0;
   bool _tapped = false;
+  late final Ticker _ticker = createTicker((elapsed) {
+    setState(() {});
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -69,31 +74,49 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Stack(
         children: [
-          NotificationListener<ScrollUpdateNotification>(
+          NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              var currentMs = DateTime.now().millisecondsSinceEpoch.toDouble();
-
-              var delta = currentMs - _currentMs;
-              if (delta > 100) {
-                _lastFrameRate = (_frames.toDouble() / delta * 1000).toInt();
-                _frames = 0;
-                _currentMs = currentMs;
-
-                setState(() {});
+              if (notification is ScrollStartNotification) {
+                _ticker.start();
               }
-
-              _frames += 1;
-
+              if (notification is ScrollEndNotification) {
+                _ticker.stop();
+              }
               return false;
             },
-            child: ListView.builder(
-              itemCount: 1000,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                  horizontal: 16,
+            child: NotificationListener<ScrollUpdateNotification>(
+              onNotification: (notification) {
+                var currentMs =
+                    DateTime.now().millisecondsSinceEpoch.toDouble();
+
+                var delta = currentMs - _currentMs;
+                if (delta > 100) {
+                  _lastFrameRate = (_frames.toDouble() / delta * 1000).toInt();
+                  _frames = 0;
+                  _currentMs = currentMs;
+
+                  setState(() {});
+                }
+
+                _frames += 1;
+
+                return false;
+              },
+              child: ListView.builder(
+                itemCount: 1000,
+                itemBuilder: (context, index) => InkWell(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (context) => const MyHomePage(title: "")),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 16,
+                    ),
+                    child: Text("Item: $index"),
+                  ),
                 ),
-                child: Text("Item: $index"),
               ),
             ),
           ),
@@ -103,11 +126,15 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Container(
               color: Colors.red,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(
-                _lastFrameRate.toString(),
-                style: const TextStyle(
-                  fontSize: 24,
-                ),
+              child: Column(
+                children: [
+                  Text(
+                    _lastFrameRate.toString(),
+                    style: const TextStyle(
+                      fontSize: 24,
+                    ),
+                  )
+                ],
               ),
             ),
           )
